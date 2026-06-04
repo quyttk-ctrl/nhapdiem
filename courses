@@ -13,7 +13,7 @@
 margin:0;
 padding:0;
 box-sizing:border-box;
-font-family:Segoe UI,Arial;
+font-family:Segoe UI,Arial,sans-serif;
 }
 
 body{
@@ -23,7 +23,7 @@ min-height:100vh;
 }
 
 .container{
-max-width:1600px;
+max-width:1700px;
 margin:auto;
 }
 
@@ -48,19 +48,37 @@ border-radius:20px;
 box-shadow:0 4px 20px rgba(0,0,0,.08);
 }
 
+.input-box{
+margin-bottom:20px;
+}
+
+.input-box label{
+display:block;
+font-weight:600;
+margin-bottom:8px;
+}
+
+.input-box input{
+width:100%;
+padding:12px;
+border:1px solid #ddd;
+border-radius:10px;
+}
+
 .dropzone{
 border:3px dashed #667eea;
 border-radius:18px;
 padding:40px 20px;
+text-align:center;
+cursor:pointer;
+background:#fafbff;
+transition:.3s;
+min-height:220px;
+
 display:flex;
 flex-direction:column;
-align-items:center;
 justify-content:center;
-cursor:pointer;
-text-align:center;
-min-height:220px;
-transition:.3s;
-background:#fafbff;
+align-items:center;
 }
 
 .dropzone:hover{
@@ -83,32 +101,15 @@ margin-bottom:10px;
 word-break:break-word;
 }
 
-.input-box{
-margin-bottom:20px;
-}
-
-.input-box label{
-display:block;
-margin-bottom:8px;
-font-weight:600;
-}
-
-.input-box input{
-width:100%;
-padding:12px;
-border-radius:10px;
-border:1px solid #ccc;
-}
-
 button{
 width:100%;
 padding:14px;
+margin-top:12px;
 border:none;
 border-radius:12px;
-font-weight:bold;
 cursor:pointer;
-margin-top:12px;
 font-size:16px;
+font-weight:bold;
 }
 
 .primary{
@@ -146,7 +147,7 @@ text-align:center;
 }
 
 .badge{
-padding:6px 12px;
+padding:5px 12px;
 border-radius:20px;
 font-size:12px;
 }
@@ -170,6 +171,7 @@ grid-template-columns:1fr;
 }
 
 </style>
+
 </head>
 
 <body>
@@ -189,27 +191,13 @@ grid-template-columns:1fr;
 <div class="card">
 
 <div class="input-box">
-
-<label>Số câu Reading</label>
-
-<input
-id="readingCount"
-type="number"
-value="40"
->
-
+<label>Số câu Listening</label>
+<input id="listeningCount" type="number" value="15">
 </div>
 
 <div class="input-box">
-
-<label>Số câu Listening</label>
-
-<input
-id="listeningCount"
-type="number"
-value="15"
->
-
+<label>Số câu Reading</label>
+<input id="readingCount" type="number" value="40">
 </div>
 
 <div class="dropzone" id="dropzone">
@@ -261,13 +249,13 @@ onchange="loadExcel(this)"
 <th>SBD</th>
 <th>Mã đề</th>
 
-<th>Reading</th>
-<th>Đúng Reading</th>
-<th>% Reading</th>
-
 <th>Listening</th>
 <th>Đúng Listening</th>
 <th>% Listening</th>
+
+<th>Reading</th>
+<th>Đúng Reading</th>
+<th>% Reading</th>
 
 <th>Status</th>
 
@@ -275,9 +263,7 @@ onchange="loadExcel(this)"
 
 </thead>
 
-<tbody id="tbody">
-
-</tbody>
+<tbody id="tbody"></tbody>
 
 </table>
 
@@ -297,69 +283,35 @@ let answerKeys={};
 let questionCols=[];
 let results=[];
 
-const input=
-document.getElementById(
-"excelInput"
-);
+const input=document.getElementById("excelInput");
+const dropzone=document.getElementById("dropzone");
 
-const dropzone=
-document.getElementById(
-"dropzone"
-);
+dropzone.onclick=()=>input.click();
 
-dropzone.onclick=()=>{
-
-input.click();
-
-};
-
-dropzone.addEventListener(
-"dragover",
-e=>{
-
+dropzone.addEventListener("dragover",e=>{
 e.preventDefault();
+dropzone.classList.add("drag");
+});
 
-dropzone.classList.add(
-"drag"
-);
+dropzone.addEventListener("dragleave",()=>{
+dropzone.classList.remove("drag");
+});
 
-}
-);
-
-dropzone.addEventListener(
-"dragleave",
-()=>{
-
-dropzone.classList.remove(
-"drag"
-);
-
-}
-);
-
-dropzone.addEventListener(
-"drop",
-e=>{
-
+dropzone.addEventListener("drop",e=>{
 e.preventDefault();
+dropzone.classList.remove("drag");
 
-dropzone.classList.remove(
-"drag"
-);
-
-input.files=
-e.dataTransfer.files;
+input.files=e.dataTransfer.files;
 
 loadExcel(input);
 
-}
-);
+});
 
-function msg(t){
+function msg(text){
 
 document.getElementById(
 "message"
-).innerHTML=t;
+).innerHTML=text;
 
 }
 
@@ -375,41 +327,45 @@ document.getElementById(
 
 "📄 "+file.name;
 
-const reader=
-new FileReader();
+const reader=new FileReader();
 
 reader.onload=e=>{
 
-const wb=
-XLSX.read(
+const wb=XLSX.read(
+
 new Uint8Array(
 e.target.result
 ),
+
 {type:"array"}
+
 );
 
 const sheet=
+
 wb.Sheets[
 wb.SheetNames[0]
 ];
 
 rawRows=
+
 XLSX.utils.sheet_to_json(
+
 sheet,
+
 {
 header:1,
 defval:"",
 raw:false
 }
+
 );
 
 prepare();
 
 };
 
-reader.readAsArrayBuffer(
-file
-);
+reader.readAsArrayBuffer(file);
 
 }
 
@@ -421,13 +377,7 @@ questionCols=[];
 
 let headerRow=-1;
 
-for(
-
-let i=0;
-i<rawRows.length;
-i++
-
-){
+for(let i=0;i<rawRows.length;i++){
 
 if(
 
@@ -455,13 +405,14 @@ break;
 
 if(headerRow===-1){
 
-msg("❌ Không tìm thấy SBD");
+msg("❌ Không tìm thấy cột SBD");
 
 return;
 
 }
 
 const header=
+
 rawRows[
 headerRow
 ];
@@ -484,27 +435,14 @@ header.findIndex(
 x=>
 
 String(x)
-.includes(
-"Mã"
-)
-
+.includes("Mã")
 );
 
-header.forEach(
+header.forEach((col,index)=>{
 
-(col,index)=>{
+const num=parseInt(col);
 
-const num=
-
-parseInt(
-col
-);
-
-if(
-
-!isNaN(num)
-
-){
+if(!isNaN(num)){
 
 questionCols.push({
 
@@ -516,52 +454,33 @@ col:index
 
 }
 
-}
-
-);
+});
 
 questionCols.sort(
-
 (a,b)=>
-
-a.question-
-b.question
-
+a.question-b.question
 );
 
-for(
+for(let i=1;i<headerRow;i++){
 
-let i=1;
-i<headerRow;
-i++
-
-){
-
-const row=
-rawRows[i];
+const row=rawRows[i];
 
 const code=
 
 String(
-row[
-codeIndex
-]||''
+row[codeIndex]||''
 ).trim();
 
 if(!code)continue;
 
-answerKeys[
-code
-]=
+answerKeys[code]=
 
 questionCols.map(
 
 q=>
 
 String(
-row[
-q.col
-]||''
+row[q.col]||''
 )
 
 .trim()
@@ -572,23 +491,14 @@ q.col
 
 }
 
-for(
+for(let i=headerRow+1;i<rawRows.length;i++){
 
-let i=headerRow+1;
-i<rawRows.length;
-i++
-
-){
-
-const row=
-rawRows[i];
+const row=rawRows[i];
 
 const sbd=
 
 String(
-row[
-sbdIndex
-]||''
+row[sbdIndex]||''
 ).trim();
 
 if(!sbd)continue;
@@ -600,9 +510,7 @@ sbd,
 code:
 
 String(
-row[
-codeIndex
-]||''
+row[codeIndex]||''
 ).trim(),
 
 row
@@ -611,25 +519,11 @@ row
 
 }
 
-msg(
-
-`Đọc được ${students.length} sinh viên`
-
-);
+msg(`Đọc được ${students.length} sinh viên`);
 
 }
 
 function scoreAll(){
-
-const readingQuestions=
-
-parseInt(
-
-document.getElementById(
-"readingCount"
-).value
-
-)||0;
 
 const listeningQuestions=
 
@@ -641,11 +535,19 @@ document.getElementById(
 
 )||0;
 
+const readingQuestions=
+
+parseInt(
+
+document.getElementById(
+"readingCount"
+).value
+
+)||0;
+
 results=[];
 
-students.forEach(
-
-st=>{
+students.forEach(st=>{
 
 const key=
 
@@ -669,20 +571,16 @@ return;
 
 }
 
-let read=0;
-let listen=0;
+let listeningCorrect=0;
+let readingCorrect=0;
 
-questionCols.forEach(
-
-(q,index)=>{
+questionCols.forEach((q,index)=>{
 
 const studentAns=
 
 String(
 
-st.row[
-q.col
-]||''
+st.row[q.col]||''
 
 )
 
@@ -707,23 +605,21 @@ key[index]
 if(
 
 index<
-readingQuestions
+listeningQuestions
 
 ){
 
-read++;
+listeningCorrect++;
 
 }else{
 
-listen++;
+readingCorrect++;
 
 }
 
 }
 
-}
-
-);
+});
 
 results.push({
 
@@ -731,48 +627,48 @@ sbd:st.sbd,
 
 code:st.code,
 
-reading:
-
-(
-
-read*
-10/
-
-readingQuestions
-
-).toFixed(2),
-
-readingCorrect:read,
-
-readingPercent:
-
-(
-
-read/
-readingQuestions*
-100
-
-).toFixed(1)+"%",
-
 listening:
 
 (
 
-listen*
+listeningCorrect*
 7.5/
 
 listeningQuestions
 
 ).toFixed(2),
 
-listeningCorrect:listen,
+listeningCorrect,
 
 listeningPercent:
 
 (
 
-listen/
+listeningCorrect/
 listeningQuestions*
+100
+
+).toFixed(1)+"%",
+
+reading:
+
+(
+
+readingCorrect*
+10/
+
+readingQuestions
+
+).toFixed(2),
+
+readingCorrect,
+
+readingPercent:
+
+(
+
+readingCorrect/
+readingQuestions*
 100
 
 ).toFixed(1)+"%",
@@ -781,9 +677,7 @@ status:"OK"
 
 });
 
-}
-
-);
+});
 
 render();
 
@@ -792,31 +686,29 @@ render();
 function render(){
 
 const tbody=
+
 document.getElementById(
 "tbody"
 );
 
 tbody.innerHTML='';
 
-results.forEach(
-
-r=>{
+results.forEach(r=>{
 
 tbody.innerHTML += `
 
 <tr>
 
 <td>${r.sbd}</td>
-
 <td>${r.code}</td>
-
-<td>${r.reading||'-'}</td>
-<td>${r.readingCorrect||'-'}</td>
-<td>${r.readingPercent||'-'}</td>
 
 <td>${r.listening||'-'}</td>
 <td>${r.listeningCorrect||'-'}</td>
 <td>${r.listeningPercent||'-'}</td>
+
+<td>${r.reading||'-'}</td>
+<td>${r.readingCorrect||'-'}</td>
+<td>${r.readingPercent||'-'}</td>
 
 <td>
 
@@ -832,9 +724,7 @@ ${r.status}
 
 `;
 
-}
-
-);
+});
 
 }
 
@@ -843,62 +733,58 @@ function exportExcel(){
 const data=[[
 "SBD",
 "Mã đề",
-"Reading",
-"Đúng Reading",
-"% Reading",
+
 "Listening",
 "Đúng Listening",
 "% Listening",
+
+"Reading",
+"Đúng Reading",
+"% Reading",
+
 "Status"
 ]];
 
-results.forEach(
-
-r=>{
+results.forEach(r=>{
 
 data.push([
 
 r.sbd,
 r.code,
 
-r.reading,
-r.readingCorrect,
-r.readingPercent,
-
 r.listening,
 r.listeningCorrect,
 r.listeningPercent,
+
+r.reading,
+r.readingCorrect,
+r.readingPercent,
 
 r.status
 
 ]);
 
-}
-
-);
+});
 
 const ws=
+
 XLSX.utils.aoa_to_sheet(
 data
 );
 
 const wb=
+
 XLSX.utils.book_new();
 
 XLSX.utils.book_append_sheet(
-
 wb,
 ws,
 "KetQua"
-
 );
 
 XLSX.writeFile(
-
 wb,
-
 `KetQua_${Date.now()}.xlsx`
-
 );
 
 }
