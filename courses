@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hệ Thống Chấm Điểm</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Segoe UI,Arial;
+}
+
+body{
+background:linear-gradient(135deg,#667eea,#764ba2);
+padding:25px;
+min-height:100vh;
+}
+
+.container{
+max-width:1600px;
+margin:auto;
+}
+
+.header{
+background:white;
+padding:30px;
+border-radius:20px;
+margin-bottom:20px;
+box-shadow:0 4px 20px rgba(0,0,0,.1);
+}
+
+.grid{
+display:grid;
+grid-template-columns:360px 1fr;
+gap:20px;
+}
+
+.card{
+background:white;
+padding:25px;
+border-radius:20px;
+box-shadow:0 4px 20px rgba(0,0,0,.08);
+}
+
+.dropzone{
+border:3px dashed #667eea;
+border-radius:18px;
+padding:40px 20px;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+cursor:pointer;
+text-align:center;
+min-height:220px;
+transition:.3s;
+background:#fafbff;
+}
+
+.dropzone:hover{
+background:#f2f5ff;
+}
+
+.drag{
+background:#eef2ff;
+}
+
+.upload-icon{
+font-size:55px;
+margin-bottom:15px;
+}
+
+#fileLabel{
+font-size:24px;
+font-weight:bold;
+margin-bottom:10px;
+word-break:break-word;
+}
+
+.input-box{
+margin-bottom:20px;
+}
+
+.input-box label{
+display:block;
+margin-bottom:8px;
+font-weight:600;
+}
+
+.input-box input{
+width:100%;
+padding:12px;
+border-radius:10px;
+border:1px solid #ccc;
+}
+
+button{
+width:100%;
+padding:14px;
+border:none;
+border-radius:12px;
+font-weight:bold;
+cursor:pointer;
+margin-top:12px;
+font-size:16px;
+}
+
+.primary{
+background:#667eea;
+color:white;
+}
+
+.success{
+background:#2ecc71;
+color:white;
+}
+
+.table-wrap{
+overflow:auto;
+max-height:700px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th{
+background:#667eea;
+color:white;
+padding:12px;
+position:sticky;
+top:0;
+}
+
+td{
+padding:10px;
+border-bottom:1px solid #eee;
+text-align:center;
+}
+
+.badge{
+padding:6px 12px;
+border-radius:20px;
+font-size:12px;
+}
+
+.ok{
+background:#d4edda;
+color:#1d6b2a;
+}
+
+.error{
+background:#ffd6d6;
+color:#b00020;
+}
+
+@media(max-width:1000px){
+
+.grid{
+grid-template-columns:1fr;
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+
+<h1>📊 Hệ Thống Chấm Điểm</h1>
+
+<p>Upload 1 file Excel chứa đáp án + sinh viên</p>
+
+</div>
+
+<div class="grid">
+
+<div class="card">
+
+<div class="input-box">
+
+<label>Số câu Reading</label>
+
+<input
+id="readingCount"
+type="number"
+value="40"
+>
+
+</div>
+
+<div class="input-box">
+
+<label>Số câu Listening</label>
+
+<input
+id="listeningCount"
+type="number"
+value="15"
+>
+
+</div>
+
+<div class="dropzone" id="dropzone">
+
+<div class="upload-icon">📂</div>
+
+<div id="fileLabel">
+
+Chọn file Excel hoặc kéo thả
+
+</div>
+
+<input
+id="excelInput"
+type="file"
+accept=".xlsx,.xls"
+style="display:none"
+onchange="loadExcel(this)"
+>
+
+</div>
+
+<button class="primary" onclick="scoreAll()">
+
+🧮 Chấm điểm
+
+</button>
+
+<button class="success" onclick="exportExcel()">
+
+📥 Xuất Excel
+
+</button>
+
+<div id="message" style="margin-top:15px"></div>
+
+</div>
+
+<div class="card">
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>SBD</th>
+<th>Mã đề</th>
+
+<th>Reading</th>
+<th>Đúng Reading</th>
+<th>% Reading</th>
+
+<th>Listening</th>
+<th>Đúng Listening</th>
+<th>% Listening</th>
+
+<th>Status</th>
+
+</tr>
+
+</thead>
+
+<tbody id="tbody">
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+let rawRows=[];
+let students=[];
+let answerKeys={};
+let questionCols=[];
+let results=[];
+
+const input=
+document.getElementById(
+"excelInput"
+);
+
+const dropzone=
+document.getElementById(
+"dropzone"
+);
+
+dropzone.onclick=()=>{
+
+input.click();
+
+};
+
+dropzone.addEventListener(
+"dragover",
+e=>{
+
+e.preventDefault();
+
+dropzone.classList.add(
+"drag"
+);
+
+}
+);
+
+dropzone.addEventListener(
+"dragleave",
+()=>{
+
+dropzone.classList.remove(
+"drag"
+);
+
+}
+);
+
+dropzone.addEventListener(
+"drop",
+e=>{
+
+e.preventDefault();
+
+dropzone.classList.remove(
+"drag"
+);
+
+input.files=
+e.dataTransfer.files;
+
+loadExcel(input);
+
+}
+);
+
+function msg(t){
+
+document.getElementById(
+"message"
+).innerHTML=t;
+
+}
+
+function loadExcel(input){
+
+const file=input.files[0];
+
+if(!file)return;
+
+document.getElementById(
+"fileLabel"
+).innerHTML=
+
+"📄 "+file.name;
+
+const reader=
+new FileReader();
+
+reader.onload=e=>{
+
+const wb=
+XLSX.read(
+new Uint8Array(
+e.target.result
+),
+{type:"array"}
+);
+
+const sheet=
+wb.Sheets[
+wb.SheetNames[0]
+];
+
+rawRows=
+XLSX.utils.sheet_to_json(
+sheet,
+{
+header:1,
+defval:"",
+raw:false
+}
+);
+
+prepare();
+
+};
+
+reader.readAsArrayBuffer(
+file
+);
+
+}
+
+function prepare(){
+
+students=[];
+answerKeys={};
+questionCols=[];
+
+let headerRow=-1;
+
+for(
+
+let i=0;
+i<rawRows.length;
+i++
+
+){
+
+if(
+
+rawRows[i].some(
+
+x=>
+
+String(x)
+.trim()
+.toUpperCase()
+
+==="SBD"
+
+)
+
+){
+
+headerRow=i;
+
+break;
+
+}
+
+}
+
+if(headerRow===-1){
+
+msg("❌ Không tìm thấy SBD");
+
+return;
+
+}
+
+const header=
+rawRows[
+headerRow
+];
+
+const sbdIndex=
+
+header.findIndex(
+x=>
+
+String(x)
+.toUpperCase()
+
+==="SBD"
+
+);
+
+const codeIndex=
+
+header.findIndex(
+x=>
+
+String(x)
+.includes(
+"Mã"
+)
+
+);
+
+header.forEach(
+
+(col,index)=>{
+
+const num=
+
+parseInt(
+col
+);
+
+if(
+
+!isNaN(num)
+
+){
+
+questionCols.push({
+
+question:num,
+
+col:index
+
+});
+
+}
+
+}
+
+);
+
+questionCols.sort(
+
+(a,b)=>
+
+a.question-
+b.question
+
+);
+
+for(
+
+let i=1;
+i<headerRow;
+i++
+
+){
+
+const row=
+rawRows[i];
+
+const code=
+
+String(
+row[
+codeIndex
+]||''
+).trim();
+
+if(!code)continue;
+
+answerKeys[
+code
+]=
+
+questionCols.map(
+
+q=>
+
+String(
+row[
+q.col
+]||''
+)
+
+.trim()
+
+.toUpperCase()
+
+);
+
+}
+
+for(
+
+let i=headerRow+1;
+i<rawRows.length;
+i++
+
+){
+
+const row=
+rawRows[i];
+
+const sbd=
+
+String(
+row[
+sbdIndex
+]||''
+).trim();
+
+if(!sbd)continue;
+
+students.push({
+
+sbd,
+
+code:
+
+String(
+row[
+codeIndex
+]||''
+).trim(),
+
+row
+
+});
+
+}
+
+msg(
+
+`Đọc được ${students.length} sinh viên`
+
+);
+
+}
+
+function scoreAll(){
+
+const readingQuestions=
+
+parseInt(
+
+document.getElementById(
+"readingCount"
+).value
+
+)||0;
+
+const listeningQuestions=
+
+parseInt(
+
+document.getElementById(
+"listeningCount"
+).value
+
+)||0;
+
+results=[];
+
+students.forEach(
+
+st=>{
+
+const key=
+
+answerKeys[
+st.code
+];
+
+if(!key){
+
+results.push({
+
+sbd:st.sbd,
+
+code:st.code,
+
+status:"Lỗi mã đề"
+
+});
+
+return;
+
+}
+
+let read=0;
+let listen=0;
+
+questionCols.forEach(
+
+(q,index)=>{
+
+const studentAns=
+
+String(
+
+st.row[
+q.col
+]||''
+
+)
+
+.trim()
+
+.toUpperCase();
+
+if(
+
+studentAns===
+
+String(
+key[index]
+)
+
+.trim()
+
+.toUpperCase()
+
+){
+
+if(
+
+index<
+readingQuestions
+
+){
+
+read++;
+
+}else{
+
+listen++;
+
+}
+
+}
+
+}
+
+);
+
+results.push({
+
+sbd:st.sbd,
+
+code:st.code,
+
+reading:
+
+(
+
+read*
+10/
+
+readingQuestions
+
+).toFixed(2),
+
+readingCorrect:read,
+
+readingPercent:
+
+(
+
+read/
+readingQuestions*
+100
+
+).toFixed(1)+"%",
+
+listening:
+
+(
+
+listen*
+7.5/
+
+listeningQuestions
+
+).toFixed(2),
+
+listeningCorrect:listen,
+
+listeningPercent:
+
+(
+
+listen/
+listeningQuestions*
+100
+
+).toFixed(1)+"%",
+
+status:"OK"
+
+});
+
+}
+
+);
+
+render();
+
+}
+
+function render(){
+
+const tbody=
+document.getElementById(
+"tbody"
+);
+
+tbody.innerHTML='';
+
+results.forEach(
+
+r=>{
+
+tbody.innerHTML += `
+
+<tr>
+
+<td>${r.sbd}</td>
+
+<td>${r.code}</td>
+
+<td>${r.reading||'-'}</td>
+<td>${r.readingCorrect||'-'}</td>
+<td>${r.readingPercent||'-'}</td>
+
+<td>${r.listening||'-'}</td>
+<td>${r.listeningCorrect||'-'}</td>
+<td>${r.listeningPercent||'-'}</td>
+
+<td>
+
+<span class="badge ${r.status==="OK"?"ok":"error"}">
+
+${r.status}
+
+</span>
+
+</td>
+
+</tr>
+
+`;
+
+}
+
+);
+
+}
+
+function exportExcel(){
+
+const data=[[
+"SBD",
+"Mã đề",
+"Reading",
+"Đúng Reading",
+"% Reading",
+"Listening",
+"Đúng Listening",
+"% Listening",
+"Status"
+]];
+
+results.forEach(
+
+r=>{
+
+data.push([
+
+r.sbd,
+r.code,
+
+r.reading,
+r.readingCorrect,
+r.readingPercent,
+
+r.listening,
+r.listeningCorrect,
+r.listeningPercent,
+
+r.status
+
+]);
+
+}
+
+);
+
+const ws=
+XLSX.utils.aoa_to_sheet(
+data
+);
+
+const wb=
+XLSX.utils.book_new();
+
+XLSX.utils.book_append_sheet(
+
+wb,
+ws,
+"KetQua"
+
+);
+
+XLSX.writeFile(
+
+wb,
+
+`KetQua_${Date.now()}.xlsx`
+
+);
+
+}
+
+</script>
+
+</body>
+</html>
